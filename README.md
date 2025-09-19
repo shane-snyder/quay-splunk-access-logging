@@ -169,3 +169,52 @@ index="quay" sourcetype="quay_logs" (kind="push_repo" OR kind="pull_repo")
 ![Pushes and pulls by repo](img/pushes_pulls_by_repo.png)
 ---
 
+## Query: Organization Creation Events
+
+This query helps you find when a new organization was created or deleted in Quay. It shows the name of the organization, who created/deleted it, and the time of the action. This is useful for auditing new organization creation/deletion events and tracking administrative activity.
+
+### Splunk Query
+
+```
+index="quay" sourcetype="quay_logs" (kind="org_create" OR kind="org_delete")
+| eval Action = if(kind=="org_create", "Created", "Deleted")
+| rename metadata_json.namespace AS "Organization Name", performer AS "Performer"
+| table _time, Action, "Organization Name", "Performer"
+| sort -_time
+```
+
+### Output Columns
+- `_time`: The timestamp of the organization creation event.
+- `Action`: If the Organization was created or deleted.
+- `Organization Name`: The name of the organization.
+- `Performer`: The user who created/deleted the organization.
+
+### Example
+![Organization creation](img/org_creation.png)
+---
+
+## Query: Repository Creation Events
+
+This query helps you find when a new repository was created/deleted in Quay. It shows the organization, repository name, who created/deleted it, and the time of of the action. This is useful for auditing new repository creation/deletion events and tracking activity within organizations.
+
+### Splunk Query
+
+```
+index="quay" sourcetype="quay_logs" (kind="create_repo" OR kind="delete_repo")
+| eval Action = if(kind=="create_repo", "Created", "Deleted")
+| rename account AS "Organization", metadata_json.repo AS "Repository Name", performer AS "Performer"
+| table _time, Action, "Organization", "Repository Name", "Performer"
+| sort -_time
+```
+
+### Output Columns
+- `_time`: The timestamp of the repository creation/deletion event.
+- `Action`: If the repository was created or deleted.
+- `Organization`: The organization in which the repository was created.
+- `Repository Name`: The name of the repository.
+- `Performer`: The user who performed the action on the repository.
+
+### Example
+![Repository creation](img/repository_creation.png)
+---
+
