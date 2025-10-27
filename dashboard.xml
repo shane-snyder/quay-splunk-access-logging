@@ -1,0 +1,152 @@
+<dashboard version="1.1" theme="dark">
+  <label>Quay access logs</label>
+  <row>
+    <panel>
+      <title>Organization creation and deletion</title>
+      <table>
+        <title>Organization creation and deletion</title>
+        <search>
+          <query>index="quay" sourcetype="quay_logs" (kind="org_create" OR kind="org_delete")
+| eval Action = if(kind=="org_create", "Created", "Deleted")
+| rename metadata_json.namespace AS "Organization Name", performer AS "Performer"
+| table _time, Action, "Organization Name", "Performer"
+| sort -_time</query>
+          <earliest>-30d@d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Repository creation and deletion</title>
+      <table>
+        <title>Repository creation and deletion</title>
+        <search>
+          <query>index="quay" sourcetype="quay_logs" (kind="create_repo" OR kind="delete_repo")
+| eval Action = if(kind=="create_repo", "Created", "Deleted")
+| rename account AS "Organization", metadata_json.repo AS "Repository Name", performer AS "Performer"
+| table _time, Action, "Organization", "Repository Name", "Performer"
+| sort -_time</query>
+          <earliest>-30d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Quay pulls by repo</title>
+      <table>
+        <title>Quay pulls by repo</title>
+        <search>
+          <query>index="quay" sourcetype="quay_logs" kind="pull_repo"
+| stats max(_time) as last_event_epoch, latest(performer) as performer by metadata_json.namespace, metadata_json.repo, metadata_json.tag
+| eval "Last Activity" = strftime(last_event_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - last_event_epoch
+| rename metadata_json.namespace AS namespace, metadata_json.repo AS repository, metadata_json.tag AS tag
+| sort -"Last Activity"</query>
+          <earliest>-30d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Quay pulls</title>
+      <chart>
+        <title>Quay pulls</title>
+        <search>
+          <query>index="quay" sourcetype="quay_logs" kind="pull_repo"
+| timechart span=1d count AS "Number of Pulls"</query>
+          <earliest>-30d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="charting.axisLabelsX.majorLabelStyle.rotation">0</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.showDataLabels">none</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Quay push by repo</title>
+      <table>
+        <title>Quay push by repo</title>
+        <search>
+          <query>index="quay" sourcetype="quay_logs" kind="push_repo"
+| stats max(_time) as last_event_epoch, latest(performer) as performer by metadata_json.namespace, metadata_json.repo, metadata_json.tag
+| eval "Last Activity" = strftime(last_event_epoch, "%Y-%m-%d %H:%M:%S")
+| fields - last_event_epoch
+| rename metadata_json.namespace AS namespace, metadata_json.repo AS repository, metadata_json.tag AS tag
+| sort -"Last Activity"</query>
+          <earliest>-30d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <title>Quay push</title>
+      <chart>
+        <title>Quay push</title>
+        <search>
+          <query>index="quay" sourcetype="quay_logs" kind="push_repo"
+| timechart span=1d count AS "Number of Pushes"</query>
+          <earliest>-30d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <title>Pushes/Pulls by repo</title>
+      <table>
+        <title>Pushes/Pulls by repo</title>
+        <search>
+          <query>index="quay" sourcetype="quay_logs" (kind="push_repo" OR kind="pull_repo")
+| stats
+    count(eval(kind="push_repo")) as "Total Pushes",
+    max(eval(if(kind="push_repo", _time, null()))) as last_push_epoch,
+    values(eval(if(kind="push_repo", performer, null()))) as "Push Performers",
+    count(eval(if(kind="pull_repo", _time, null()))) as "Total Pulls",
+    max(eval(if(kind="pull_repo", _time, null()))) as last_pull_epoch,
+    values(eval(if(kind="pull_repo", performer, null()))) as "Pull Performers"
+  by metadata_json.namespace, metadata_json.repo
+| eval "Last Push" = strftime(last_push_epoch, "%Y-%m-%d %H:%M:%S")
+| eval "Last Pull" = strftime(last_pull_epoch, "%Y-%m-%d %H:%M:%S")
+| rename metadata_json.namespace AS namespace, metadata_json.repo AS repository
+| table namespace, repository, "Total Pushes", "Push Performers", "Last Push", "Total Pulls", "Pull Performers", "Last Pull"
+| sort -namespace, -"Total Pushes"</query>
+          <earliest>-30d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+          <refreshType>delay</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>
